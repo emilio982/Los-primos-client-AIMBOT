@@ -1,0 +1,361 @@
+-- Los Primos Client with Aimbot (Standalone Roblox Script)
+-- Toggle: Right Shift (for GUI), E (for Aimbot)
+-- Features: Camera Aimbot with FOV Circle, Target Parts (Head/Chest/Legs/Root), Team Check, Prediction, Smoothness
+-- Inject with any executor (Synapse, Krnl, etc.)
+-- For educational/single-player use only!
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
+
+-- Aimbot Settings
+local Aimbot = {
+    Enabled = false,
+    TargetPart = "Head",  -- Head, Chest, Legs, Root
+    FOV = 150,
+    TeamCheck = true,
+    Prediction = true,
+    Smoothness = 0.1,  -- 0.1 = smooth, 1 = instant snap
+    TargetParts = {
+        Head = {"Head"},
+        Chest = {"UpperTorso", "Torso"},
+        Legs = {"LeftLeg", "RightLeg", "LeftLowerLeg", "RightLowerLeg"},
+        Root = {"HumanoidRootPart"}
+    }
+}
+
+-- FOV Circle
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false
+FOVCircle.Radius = Aimbot.FOV
+FOVCircle.Color = Color3.fromRGB(255, 0, 0)
+FOVCircle.Thickness = 2
+FOVCircle.Filled = false
+FOVCircle.Transparency = 0.5
+
+-- GUI Creation
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LosPrimosClient"
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 350, 0, 450)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -225)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = MainFrame
+
+local TitleBar = Instance.new("Frame")
+TitleBar.Name = "TitleBar"
+TitleBar.Size = UDim2.new(1, 0, 0, 45)
+TitleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local TitleUICorner = Instance.new("UICorner")
+TitleUICorner.CornerRadius = UDim.new(0, 12)
+TitleUICorner.Parent = TitleBar
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Name = "TitleLabel"
+TitleLabel.Size = UDim2.new(1, -60, 1, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.Text = "Los Primos Client"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextScaled = true
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Parent = TitleBar
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Name = "CloseButton"
+CloseButton.Size = UDim2.new(0, 40, 0, 35)
+CloseButton.Position = UDim2.new(1, -45, 0, 5)
+CloseButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextScaled = true
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.BorderSizePixel = 0
+CloseButton.Parent = TitleBar
+
+local CloseUICorner = Instance.new("UICorner")
+CloseUICorner.CornerRadius = UDim.new(0, 6)
+CloseUICorner.Parent = CloseButton
+
+-- Content Frame
+local ContentFrame = Instance.new("ScrollingFrame")
+ContentFrame.Name = "ContentFrame"
+ContentFrame.Size = UDim2.new(1, -20, 1, -65)
+ContentFrame.Position = UDim2.new(0, 10, 0, 55)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.BorderSizePixel = 0
+ContentFrame.ScrollBarThickness = 6
+ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 800)
+ContentFrame.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 8)
+UIListLayout.Parent = ContentFrame
+
+-- Toggle Function
+local function CreateToggle(name, callback)
+    local ToggleFrame = Instance.new("Frame")
+    ToggleFrame.Size = UDim2.new(1, 0, 0, 35)
+    ToggleFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    ToggleFrame.BorderSizePixel = 0
+    ToggleFrame.LayoutOrder = #ContentFrame:GetChildren()
+    ToggleFrame.Parent = ContentFrame
+
+    local ToggleCorner = Instance.new("UICorner")
+    ToggleCorner.CornerRadius = UDim.new(0, 8)
+    ToggleCorner.Parent = ToggleFrame
+
+    local ToggleLabel = Instance.new("TextLabel")
+    ToggleLabel.Size = UDim2.new(1, -60, 1, 0)
+    ToggleLabel.BackgroundTransparency = 1
+    ToggleLabel.Text = name
+    ToggleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleLabel.TextScaled = true
+    ToggleLabel.Font = Enum.Font.Gotham
+    ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ToggleLabel.Parent = ToggleFrame
+
+    local ToggleButton = Instance.new("TextButton")
+    ToggleButton.Size = UDim2.new(0, 50, 0, 25)
+    ToggleButton.Position = UDim2.new(1, -55, 0.5, -12.5)
+    ToggleButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    ToggleButton.Text = "OFF"
+    ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleButton.TextScaled = true
+    ToggleButton.Font = Enum.Font.GothamBold
+    ToggleButton.BorderSizePixel = 0
+    ToggleButton.Parent = ToggleFrame
+
+    local ToggleButtonCorner = Instance.new("UICorner")
+    ToggleButtonCorner.CornerRadius = UDim.new(0, 6)
+    ToggleButtonCorner.Parent = ToggleButton
+
+    local toggled = false
+    ToggleButton.MouseButton1Click:Connect(function()
+        toggled = not toggled
+        TweenService:Create(ToggleButton, TweenInfo.new(0.2), {BackgroundColor3 = toggled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)}):Play()
+        ToggleButton.Text = toggled and "ON" or "OFF"
+        callback(toggled)
+    end)
+
+    return ToggleFrame
+end
+
+-- Button Function (for cycling)
+local function CreateButton(name, states, callback)
+    local ButtonFrame = Instance.new("Frame")
+    ButtonFrame.Size = UDim2.new(1, 0, 0, 35)
+    ButtonFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    ButtonFrame.BorderSizePixel = 0
+    ButtonFrame.LayoutOrder = #ContentFrame:GetChildren()
+    ButtonFrame.Parent = ContentFrame
+
+    local ButtonCorner = Instance.new("UICorner")
+    ButtonCorner.CornerRadius = UDim.new(0, 8)
+    ButtonCorner.Parent = ButtonFrame
+
+    local ButtonLabel = Instance.new("TextLabel")
+    ButtonLabel.Size = UDim2.new(1, -60, 1, 0)
+    ButtonLabel.BackgroundTransparency = 1
+    ButtonLabel.Text = name .. ": " .. states[1]
+    ButtonLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ButtonLabel.TextScaled = true
+    ButtonLabel.Font = Enum.Font.Gotham
+    ButtonLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ButtonLabel.Parent = ButtonFrame
+
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(0, 50, 0, 25)
+    Button.Position = UDim2.new(1, -55, 0.5, -12.5)
+    Button.BackgroundColor3 = Color3.fromRGB(0, 162, 255)
+    Button.Text = "Change"
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.TextScaled = true
+    Button.Font = Enum.Font.GothamBold
+    Button.BorderSizePixel = 0
+    Button.Parent = ButtonFrame
+
+    local ButtonCorner2 = Instance.new("UICorner")
+    ButtonCorner2.CornerRadius = UDim.new(0, 6)
+    ButtonCorner2.Parent = Button
+
+    local currentIndex = 1
+    Button.MouseButton1Click:Connect(function()
+        currentIndex = currentIndex % #states + 1
+        ButtonLabel.Text = name .. ": " .. states[currentIndex]
+        callback(states[currentIndex])
+    end)
+
+    return ButtonFrame
+end
+
+-- TextBox for FOV
+local function CreateTextBox(name, default, callback)
+    local TextBoxFrame = Instance.new("Frame")
+    TextBoxFrame.Size = UDim2.new(1, 0, 0, 35)
+    TextBoxFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    TextBoxFrame.BorderSizePixel = 0
+    TextBoxFrame.LayoutOrder = #ContentFrame:GetChildren()
+    TextBoxFrame.Parent = ContentFrame
+
+    local TextBoxCorner = Instance.new("UICorner")
+    TextBoxCorner.CornerRadius = UDim.new(0, 8)
+    TextBoxCorner.Parent = TextBoxFrame
+
+    local TextBoxLabel = Instance.new("TextLabel")
+    TextBoxLabel.Size = UDim2.new(0.6, 0, 1, 0)
+    TextBoxLabel.BackgroundTransparency = 1
+    TextBoxLabel.Text = name
+    TextBoxLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TextBoxLabel.TextScaled = true
+    TextBoxLabel.Font = Enum.Font.Gotham
+    TextBoxLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TextBoxLabel.Parent = TextBoxFrame
+
+    local TextBox = Instance.new("TextBox")
+    TextBox.Size = UDim2.new(0.35, 0, 0, 25)
+    TextBox.Position = UDim2.new(0.65, 0, 0.5, -12.5)
+    TextBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    TextBox.Text = tostring(default)
+    TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TextBox.PlaceholderText = "Enter value"
+    TextBox.TextScaled = true
+    TextBox.Font = Enum.Font.Gotham
+    TextBox.BorderSizePixel = 0
+    TextBox.Parent = TextBoxFrame
+
+    local TextBoxCorner2 = Instance.new("UICorner")
+    TextBoxCorner2.CornerRadius = UDim.new(0, 6)
+    TextBoxCorner2.Parent = TextBox
+
+    TextBox.FocusLost:Connect(function()
+        local val = tonumber(TextBox.Text) or default
+        TextBox.Text = tostring(val)
+        callback(val)
+    end)
+
+    return TextBoxFrame
+end
+
+-- Create UI Elements
+CreateToggle("Aimbot", function(state)
+    Aimbot.Enabled = state
+    FOVCircle.Visible = state
+end)
+
+CreateToggle("Team Check", function(state)
+    Aimbot.TeamCheck = state
+end)
+
+CreateButton("Target Part", {"Head", "Chest", "Legs", "Root"}, function(part)
+    Aimbot.TargetPart = part
+end)
+
+CreateTextBox("FOV Radius", Aimbot.FOV, function(val)
+    Aimbot.FOV = val
+    FOVCircle.Radius = val
+end)
+
+CreateTextBox("Smoothness (0.01-1)", Aimbot.Smoothness, function(val)
+    Aimbot.Smoothness = math.clamp(val, 0.01, 1)
+end)
+
+-- Close Button
+CloseButton.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Keybind to toggle GUI (Right Shift)
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        ScreenGui.Enabled = not ScreenGui.Enabled
+    end
+end)
+
+-- Function to get closest target
+local function GetClosestTarget()
+    local closest, shortestDist = nil, Aimbot.FOV
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player == LocalPlayer or not player.Character or not player.Character:FindFirstChild("Humanoid") or player.Character.Humanoid.Health <= 0 then
+            continue
+        end
+
+        if Aimbot.TeamCheck and player.Team == LocalPlayer.Team then
+            continue
+        end
+
+        local targetPart = nil
+        for _, partName in ipairs(Aimbot.TargetParts[Aimbot.TargetPart]) do
+            targetPart = player.Character:FindFirstChild(partName)
+            if targetPart then break end
+        end
+
+        if targetPart then
+            local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+            if onScreen then
+                local dist = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                if dist < shortestDist then
+                    shortestDist = dist
+                    closest = {
+                        Player = player,
+                        Part = targetPart,
+                        Position = targetPart.Position
+                    }
+                end
+            end
+        end
+    end
+
+    return closest
+end
+
+-- Aimbot Main Loop
+RunService.Heartbeat:Connect(function()
+    FOVCircle.Position = Vector2.new(Mouse.X, Mouse.Y)
+    FOVCircle.Visible = Aimbot.Enabled
+
+    if Aimbot.Enabled then
+        local target = GetClosestTarget()
+        if target then
+            local targetPos = target.Position
+            if Aimbot.Prediction and target.Part.Parent:FindFirstChild("HumanoidRootPart") then
+                targetPos = targetPos + (target.Part.Parent.HumanoidRootPart.Velocity * 0.13)
+            end
+
+            local currentCFrame = Camera.CFrame
+            local targetCFrame = CFrame.lookAt(currentCFrame.Position, targetPos)
+            Camera.CFrame = currentCFrame:Lerp(targetCFrame, Aimbot.Smoothness)
+        end
+    end
+end)
+
+-- Cleanup on leave
+Players.PlayerRemoving:Connect(function(player)
+    if player == LocalPlayer then
+        ScreenGui:Destroy()
+        FOVCircle:Remove()
+    end
+end)
+
+print("Los Primos Client Loaded! Press Right Shift to toggle GUI, E to test aimbot toggle (via UI).")
